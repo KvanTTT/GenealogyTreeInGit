@@ -11,10 +11,11 @@ namespace GenealogyTreeInGit.Git
 
         public List<GitPersonEvent> Events { get; }
 
-        public Family(string title, Dictionary<string, GitPerson> persons)
+        public Family(string title, Dictionary<string, GitPerson> persons, List<GitPersonEvent> events)
         {
             Title = title ?? throw new ArgumentNullException(nameof(title));
             Persons = persons ?? throw new ArgumentNullException(nameof(persons));
+            Events = events ?? throw new ArgumentNullException(nameof(events));
         }
     }
 }

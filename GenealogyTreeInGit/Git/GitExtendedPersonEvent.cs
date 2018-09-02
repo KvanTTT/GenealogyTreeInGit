@@ -13,13 +13,13 @@ namespace GenealogyTreeInGit.Git
 
         public List<GitPerson> Parents { get; set; } = new List<GitPerson>();
 
-        public GitExtendedPersonEvent(GitPerson gitPerson, EventType type, DateTime date, string description)
-            : base(gitPerson, type, date, description)
+        public GitExtendedPersonEvent(GitPerson gitPerson, EventType type, DateTime date, string description, GitDateType dateType = GitDateType.Exact)
+            : base(gitPerson, type, date, description, dateType)
         {
         }
 
         public GitExtendedPersonEvent(GitPersonEvent gitPersonEvent)
-            : base(gitPersonEvent.Person, gitPersonEvent.Type, gitPersonEvent.Date, gitPersonEvent.Description)
+            : base(gitPersonEvent.Person, gitPersonEvent.Type, gitPersonEvent.Date, gitPersonEvent.Description, gitPersonEvent.DateType)
         {
         }
     }

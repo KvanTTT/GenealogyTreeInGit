@@ -10,14 +10,17 @@ namespace GenealogyTreeInGit.Git
 
         public DateTime Date { get; }
 
+        public GitDateType DateType { get; }
+
         public string Description { get; }
 
-        public GitPersonEvent(GitPerson gitPerson, EventType type, DateTime date, string description)
+        public GitPersonEvent(GitPerson gitPerson, EventType type, DateTime date, string description, GitDateType dateType = GitDateType.Exact)
         {
             Person = gitPerson;
             Type = type;
             Date = date;
             Description = description;
+            DateType = dateType;
         }
 
         public int CompareTo(GitPersonEvent other)
@@ -30,13 +33,12 @@ namespace GenealogyTreeInGit.Git
 
         public override string ToString()
         {
-            string dateStr = Date.IsDateUndefined() ? "" : Date.ToShortDateString();
-            string dateDesr = Utils.JoinNotEmpty(dateStr, Description);
-            if (!string.IsNullOrEmpty(dateDesr))
-            {
-                dateDesr = " at " + dateDesr;
-            }
-            return Type.ToString() + dateDesr;
+            string dateStr = Date.IsDateUndefined() ? ""
+                : DateType == GitDateType.Exact
+                ? " at " + Date.ToShortDateString()
+                : " after " + Date.ToLongDateString();
+
+            return Type.ToString() + Utils.JoinNotEmpty(dateStr, Description);
         }
     }
 }

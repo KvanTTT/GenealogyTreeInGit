@@ -24,7 +24,7 @@ namespace GenealogyTreeInGit
 
             FillParents(parseResult, persons);
 
-            var family = new Family(parseResult.Title, persons);
+            var family = new Family(parseResult.Title, persons, new List<GitPersonEvent>());
             return family;
         }
 
@@ -92,7 +92,18 @@ namespace GenealogyTreeInGit
 
             foreach (GedcomEvent ev in gedcomPerson.Events)
             {
-                curDate = ev.Date.HasValue ? ev.Date.Value : curDate.AddTicks(1);
+                GitDateType dateType;
+
+                if (ev.Date.HasValue)
+                {
+                    curDate = ev.Date.Value;
+                    dateType = GitDateType.Exact;
+                }
+                else
+                {
+                    curDate = curDate.AddTicks(1);
+                    dateType = GitDateType.After;
+                }
 
                 string description = Utils.JoinNotEmpty(ev.Place, ev.Latitude, ev.Longitude, ev.Note);
 
@@ -100,11 +111,11 @@ namespace GenealogyTreeInGit
 
                 if (ev.Type == EventType.Birth)
                 {
-                    gitPersonEvent = new GitExtendedPersonEvent(result, ev.Type, curDate, description);
+                    gitPersonEvent = new GitExtendedPersonEvent(result, ev.Type, curDate, description, dateType);
                 }
                 else
                 {
-                    gitPersonEvent = new GitPersonEvent(result, ev.Type, curDate, description);
+                    gitPersonEvent = new GitPersonEvent(result, ev.Type, curDate, description, dateType);
                 }
 
                 events.Add(gitPersonEvent);
