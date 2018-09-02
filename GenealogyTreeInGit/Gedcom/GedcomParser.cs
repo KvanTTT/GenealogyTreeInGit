@@ -13,6 +13,8 @@ namespace GenealogyTreeInGit.Gedcom
         private Dictionary<string, GedcomChunk> _idChunks;
         private GedcomParseResult _parseResult;
 
+        public ILogger Logger { get; set; }
+
         public GedcomParseResult Parse(string filePath)
         {
             var topChunks = GenerateChunks(filePath);
@@ -28,7 +30,8 @@ namespace GenealogyTreeInGit.Gedcom
             _idChunks = new Dictionary<string, GedcomChunk>();
             _parseResult = new GedcomParseResult();
 
-            var gedcomLines = File.ReadAllLines(filePath).Select(GedcomLine.Parse);
+            GedcomLine.Logger = Logger;
+            var gedcomLines = File.ReadAllLines(filePath).Select(GedcomLine.Parse).Where(line => line != null);
             var topChunks = new List<GedcomChunk>();
 
             foreach (GedcomLine gedcomLine in gedcomLines)
@@ -43,14 +46,15 @@ namespace GenealogyTreeInGit.Gedcom
                     GedcomChunk parent = _gedcomChunkLevels.GetParentChunk(chunk);
 
                     List<GedcomChunk> values;
-                    if (!parent.SubChunks.TryGetValue(chunk.Type, out values))
+                    if (!parent.Subchunks.TryGetValue(chunk.Type, out values))
                     {
                         values = new List<GedcomChunk>();
-                        parent.SubChunks.Add(chunk.Type, values);
+                        parent.Subchunks.Add(chunk.Type, values);
                     }
 
                     values.Add(chunk);
                 }
+
                 _gedcomChunkLevels.Set(chunk);
             }
 
@@ -72,8 +76,8 @@ namespace GenealogyTreeInGit.Gedcom
                         _parseResult.Persons.Add(person.Id, person);
                         break;
 
-                    // Skip other for now
                     default:
+                        Logger?.LogInfo(chunk + " skipped");
                         break;
                 }
 
@@ -94,7 +98,7 @@ namespace GenealogyTreeInGit.Gedcom
             var parentsIds = new List<string>();
             var childrenIds = new List<string>();
 
-            foreach (var chunk in famChunk.SubChunks)
+            foreach (var chunk in famChunk.Subchunks)
             {
                 switch (chunk.Key)
                 {
@@ -123,7 +127,9 @@ namespace GenealogyTreeInGit.Gedcom
                         note = ParseNote(note, chunk.Value.FirstOrDefault());
                         break;
 
-                    // Skip for now
+                    default:
+                        Logger?.LogInfo(ToString(chunk) + " skipped");
+                        break;
                 }
             }
 
@@ -164,7 +170,7 @@ namespace GenealogyTreeInGit.Gedcom
         {
             var person = new GedcomPerson(indiChunk.Id);
 
-            foreach (var chunk in indiChunk.SubChunks)
+            foreach (var chunk in indiChunk.Subchunks)
             {
                 switch (chunk.Key)
                 {
@@ -244,7 +250,9 @@ namespace GenealogyTreeInGit.Gedcom
                         person.Title = chunk.Value.FirstOrDefault()?.Data;
                         break;
 
-                    // Skip for now
+                    default:
+                        Logger?.LogInfo(ToString(chunk) + " skipped");
+                        break;
                 }
             }
 
@@ -259,7 +267,7 @@ namespace GenealogyTreeInGit.Gedcom
                 return false;
             }
 
-            string dateString = chunk.SubChunks.TryGetFirstValue("DATE", out GedcomChunk value) ? value.Data : null;
+            string dateString = chunk.Subchunks.TryGetFirstValue("DATE", out GedcomChunk value) ? value.Data : null;
 
             DateTime? date = DateTime.TryParse(dateString, out DateTime dateTime)
                 ? (DateTime?)dateTime
@@ -279,7 +287,7 @@ namespace GenealogyTreeInGit.Gedcom
             {
                 var adoptionEvent = new GedcomAdoptionEvent();
 
-                foreach (var adoptionSubChunk in chunk.SubChunks)
+                foreach (var adoptionSubChunk in chunk.Subchunks)
                 {
                     switch (adoptionSubChunk.Key)
                     {
@@ -299,15 +307,15 @@ namespace GenealogyTreeInGit.Gedcom
             }
 
             gedcomEvent.Date = date;
-            gedcomEvent.Place = chunk.SubChunks.TryGetFirstValue("PLAC", out GedcomChunk data) ? data.Data : null;
+            gedcomEvent.Place = chunk.Subchunks.TryGetFirstValue("PLAC", out GedcomChunk data) ? data.Data : null;
 
-            if (chunk.SubChunks.TryGetFirstValue("MAP", out GedcomChunk map))
+            if (chunk.Subchunks.TryGetFirstValue("MAP", out GedcomChunk map))
             {
-                gedcomEvent.Latitude = map.SubChunks.TryGetFirstValue("LATI", out GedcomChunk value1) ? value1.Data : null;
-                gedcomEvent.Longitude = map.SubChunks.TryGetFirstValue("LONG", out GedcomChunk value2) ? value2.Data : null;
+                gedcomEvent.Latitude = map.Subchunks.TryGetFirstValue("LATI", out GedcomChunk value1) ? value1.Data : null;
+                gedcomEvent.Longitude = map.Subchunks.TryGetFirstValue("LONG", out GedcomChunk value2) ? value2.Data : null;
             }
 
-            if (chunk.SubChunks.TryGetFirstValue("NOTE", out GedcomChunk note))
+            if (chunk.Subchunks.TryGetFirstValue("NOTE", out GedcomChunk note))
             {
                 gedcomEvent.Note = ParseNote(gedcomEvent.Note, note);
             }
@@ -317,11 +325,11 @@ namespace GenealogyTreeInGit.Gedcom
 
         private static string ParseDateTime(GedcomChunk chunk)
         {
-            return (chunk.SubChunks.TryGetFirstValue("DATE", out GedcomChunk value1) ? value1.Data : "") + " " +
-                   (chunk.SubChunks.TryGetFirstValue("TIME", out GedcomChunk value2) ? value2.Data : "").Trim();
+            return (chunk.Subchunks.TryGetFirstValue("DATE", out GedcomChunk value1) ? value1.Data : "") + " " +
+                   (chunk.Subchunks.TryGetFirstValue("TIME", out GedcomChunk value2) ? value2.Data : "").Trim();
         }
 
-        private static GedcomAddress ParseAddress(GedcomChunk addressChunk)
+        private GedcomAddress ParseAddress(GedcomChunk addressChunk)
         {
             // Top level node can also contain a full address or first part of it ...
             var address = new GedcomAddress
@@ -329,7 +337,7 @@ namespace GenealogyTreeInGit.Gedcom
                 Street = addressChunk.Data
             };
 
-            foreach (var chunk in addressChunk.SubChunks)
+            foreach (var chunk in addressChunk.Subchunks)
             {
                 GedcomChunk firstValue = chunk.Value.FirstOrDefault();
                 if (firstValue == null)
@@ -377,6 +385,10 @@ namespace GenealogyTreeInGit.Gedcom
                     case "WWW":
                         address.Web.Add(firstValue.Data);
                         break;
+
+                    default:
+                        Logger?.LogInfo(ToString(chunk) + " skipped");
+                        break;
                 }
             }
 
@@ -389,12 +401,13 @@ namespace GenealogyTreeInGit.Gedcom
 
             if (!string.IsNullOrEmpty(incomingChunk.Reference) && !_idChunks.TryGetValue(noteChunk.Reference, out noteChunk))
             {
+                Logger?.LogError($"Unable to find Note with Id='{incomingChunk.Reference}'");
                 return "";
             }
 
             var sb = new StringBuilder();
 
-            foreach (var chunk in noteChunk.SubChunks)
+            foreach (var chunk in noteChunk.Subchunks)
             {
                 GedcomChunk firstValue = chunk.Value.FirstOrDefault();
 
@@ -419,7 +432,9 @@ namespace GenealogyTreeInGit.Gedcom
                         sb.AppendLine(firstValue.Data);
                         break;
 
-                    // Skip for now
+                    default:
+                        Logger?.LogInfo(ToString(chunk) + " skipped");
+                        break;
                 }
             }
 
@@ -441,7 +456,7 @@ namespace GenealogyTreeInGit.Gedcom
             if (!_idChunks.TryGetValue(childRelation.FromId, out GedcomChunk childChunk))
                 return;
 
-            foreach (var chunk1 in childChunk.SubChunks)
+            foreach (var chunk1 in childChunk.Subchunks)
             {
                 if (chunk1.Key != "FAMC")
                 {
@@ -450,7 +465,7 @@ namespace GenealogyTreeInGit.Gedcom
 
                 foreach (var chunk in chunk1.Value)
                 {
-                    foreach (var subchunk in chunk.SubChunks)
+                    foreach (var subchunk in chunk.Subchunks)
                     {
                         switch (subchunk.Key)
                         {
@@ -467,7 +482,7 @@ namespace GenealogyTreeInGit.Gedcom
 
                                 foreach (GedcomChunk chunk2 in chunk1.Value)
                                 {
-                                    foreach (var chunk3 in chunk2.SubChunks)
+                                    foreach (var chunk3 in chunk2.Subchunks)
                                     {
                                         switch (chunk3.Key)
                                         {
@@ -484,11 +499,20 @@ namespace GenealogyTreeInGit.Gedcom
 
                                 childRelation.Adoption = string.Join(", ", adoptionInfo);
                                 break;
+
+                            default:
+                                Logger?.LogInfo(ToString(subchunk) + " skipped");
+                                break;
                         }
                     }
                     break;
                 }
             }
+        }
+
+        public static string ToString(KeyValuePair<string, List<GedcomChunk>> chunk)
+        {
+            return chunk.Key + " " + Utils.JoinNotEmpty(chunk.Value.Select(v => v.ToString()).ToArray());
         }
     }
 }

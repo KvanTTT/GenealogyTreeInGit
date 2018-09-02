@@ -7,12 +7,17 @@ namespace GenealogyTreeInGit.Gedcom
     /// </summary>
     public class GedcomChunk : GedcomLine
     {
-        public Dictionary<string, List<GedcomChunk>> SubChunks { get; }
+        public Dictionary<string, List<GedcomChunk>> Subchunks { get; }
 
         public GedcomChunk(GedcomLine gedcomLine)
             : base(gedcomLine.Level, gedcomLine.Id, gedcomLine.Type, gedcomLine.Data, gedcomLine.Reference)
         {
-            SubChunks = new Dictionary<string, List<GedcomChunk>>();
+            Subchunks = new Dictionary<string, List<GedcomChunk>>();
+        }
+
+        public override string ToString()
+        {
+            return base.ToString() + $" Subchunks: {Subchunks.Count}";
         }
     }
 }

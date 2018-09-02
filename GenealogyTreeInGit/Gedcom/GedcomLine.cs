@@ -6,6 +6,8 @@ namespace GenealogyTreeInGit.Gedcom
     {
         private static char[] separators = new char[] { ' ' };
 
+        public static ILogger Logger { get; set; }
+
         public int Level { get; }
 
         public string Id { get; }
@@ -38,11 +40,14 @@ namespace GenealogyTreeInGit.Gedcom
 
             if (sections.Length < 2)
             {
-                throw new ArgumentException("Line must have at least Level and Type");
+                Logger?.LogError("Line must have at least Level and Type");
+                return null;
             }
+
             if (!int.TryParse(sections[0], out var level))
             {
-                throw new ArgumentException($"'{sections[0]}' can not be interpreted as valid Level integer");
+                Logger?.LogError($"'{sections[0]}' can not be interpreted as valid Level integer");
+                return null;
             }
 
             // Normal case is no Id
@@ -56,7 +61,8 @@ namespace GenealogyTreeInGit.Gedcom
             {
                 if (sections.Length < 3)
                 {
-                    throw new ArgumentException("Line with Id must have at least Level, Id and Type");
+                    Logger?.LogError("Line with Id must have at least Level, Id and Type");
+                    return null;
                 }
 
                 id = sections[1];
