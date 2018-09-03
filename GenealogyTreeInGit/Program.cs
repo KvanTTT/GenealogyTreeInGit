@@ -76,36 +76,11 @@ namespace GenealogyTreeInGit
                     return;
                 }
 
-                string toolName, arguments;
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                var runner = new GitScriptRunner
                 {
-                    toolName = "cmd";
-                    arguments = $@"/c ""{scriptFileName}""";
-                }
-                else
-                {
-                    toolName = "sh";
-                    arguments = '\"' + scriptFileName + '\"';
-                }
-
-                var processor = new Processor(toolName, "/c " + scriptFileName)
-                {
-                    WorkingDirectory = filePath
+                    Logger = logger
                 };
-
-                processor.ErrorDataReceived += (object sender, string e) =>
-                {
-                    ConsoleColor color = Console.ForegroundColor;
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine(e);
-                    Console.ForegroundColor = color;
-                };
-                processor.OutputDataReceived += (object sender, string e) =>
-                {
-                    Console.WriteLine(e);
-                };
-
-                processor.Start();
+                runner.Run(filePath, scriptFileName);
             }
         }
     }
