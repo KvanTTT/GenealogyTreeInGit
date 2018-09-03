@@ -98,7 +98,7 @@ namespace GenealogyTreeInGit.Git
 
                 DateTime dateTime = ev.Date > MinGitDateTime ? ev.Date : MinGitDateTime;
                 string fullName = Utils.JoinNotEmpty(ev.Person.FirstName, ev.Person.LastName);
-                string message = Escape(fullName + ": " + ev.ToString());
+                string message = Escape(ev.Description);
                 string date = dateTime.ToString(CultureInfo.InvariantCulture);
                 string author = Escape(Utils.JoinNotEmpty(fullName, $"<{ev.Person.EMail}>"));
 

@@ -33,12 +33,7 @@ namespace GenealogyTreeInGit.Git
 
         public override string ToString()
         {
-            string dateStr = Date.IsDateUndefined() ? ""
-                : DateType == GitDateType.Exact
-                ? " at " + Date.ToShortDateString()
-                : " after " + Date.ToLongDateString();
-
-            return Type.ToString() + Utils.JoinNotEmpty(dateStr, Description);
+            return Description;
         }
     }
 }

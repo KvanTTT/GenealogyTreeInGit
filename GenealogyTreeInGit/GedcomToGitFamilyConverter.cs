@@ -40,11 +40,10 @@ namespace GenealogyTreeInGit
                         parseResult.Persons.TryGetValue(childRelation.FromId, out GedcomPerson child))
                     {
                         GedcomEvent gedcomEvent = parent.Events.FirstOrDefault(ev => ev.Type == EventType.Birth);
-
-                        if (gedcomEvent?.Date.HasValue == true &&
-                            (minDates.TryGetValue(child.Id, out DateTime minDate) ? minDate > gedcomEvent.Date.Value : true))
+                        if (gedcomEvent?.Date != null &&
+                            (minDates.TryGetValue(child.Id, out DateTime minDate) ? minDate > (DateTime)gedcomEvent.Date : true))
                         {
-                            minDates[child.Id] = gedcomEvent.Date.Value.AddTicks(1);
+                            minDates[child.Id] = gedcomEvent.Date.DefaultDate.AddTicks(1);
                         }
                     }
                 }
@@ -94,9 +93,9 @@ namespace GenealogyTreeInGit
             {
                 GitDateType dateType;
 
-                if (ev.Date.HasValue)
+                if (ev.Date?.IsDefined == true)
                 {
-                    curDate = ev.Date.Value;
+                    curDate = (DateTime)ev.Date;
                     dateType = GitDateType.Exact;
                 }
                 else
@@ -105,12 +104,17 @@ namespace GenealogyTreeInGit
                     dateType = GitDateType.After;
                 }
 
-                string description = Utils.JoinNotEmpty(ev.Place, ev.Latitude, ev.Longitude, ev.Note);
+                string dateStr = dateType == GitDateType.Exact ? "at " + curDate.ToShortDateString() : "";
+                string description =
+                    Utils.JoinNotEmpty(result.FirstName, result.LastName, ":", ev.Type.ToString(), dateStr, ev.Place, ev.Latitude, ev.Longitude, ev.Note);
 
                 GitPersonEvent gitPersonEvent;
 
                 if (ev.Type == EventType.Birth)
                 {
+                    description += " " + Utils.JoinNotEmpty(gedcomPerson.Gender, gedcomPerson.Education,
+                        gedcomPerson.Religion, gedcomPerson.Note, gedcomPerson.Changed,
+                        gedcomPerson.Occupation, gedcomPerson.Health, gedcomPerson.Title);
                     gitPersonEvent = new GitExtendedPersonEvent(result, ev.Type, curDate, description, dateType);
                 }
                 else
