@@ -26,7 +26,7 @@ namespace GenealogyTreeInGit.Gedcom
 
         public EventType Type { get; }
 
-        public DateTime? Date { get; set; }
+        public GedcomDate Date { get; set; }
 
         public string Place { get; set; }
 
@@ -55,12 +55,12 @@ namespace GenealogyTreeInGit.Gedcom
             if (Date == null && other.Date != null)
                 return -1;
 
-            return Date.Value.CompareTo(other.Date.Value);
+            return Date.DefaultDate.CompareTo(other.Date.DefaultDate);
         }
 
         public override string ToString()
         {
-            return Utils.JoinNotEmpty(Type.ToString(), Date?.ToShortDateString(), Place, Latitude, Longitude, Note);
+            return Utils.JoinNotEmpty(Type.ToString(), Date?.ToString(), Place, Latitude, Longitude, Note);
         }
     }
 }

@@ -17,6 +17,7 @@ namespace GenealogyTreeInGit.Gedcom
 
         public GedcomParseResult Parse(string filePath)
         {
+            GedcomDate.Logger = Logger;
             var topChunks = GenerateChunks(filePath);
             ParseTopChunks(topChunks);
             _parseResult.Title = Path.GetFileNameWithoutExtension(filePath);
@@ -269,10 +270,6 @@ namespace GenealogyTreeInGit.Gedcom
 
             string dateString = chunk.Subchunks.TryGetFirstValue("DATE", out GedcomChunk value) ? value.Data : null;
 
-            DateTime? date = DateTime.TryParse(dateString, out DateTime dateTime)
-                ? (DateTime?)dateTime
-                : null;
-
             EventType eventType;
             if (!GedcomEvent.EventTypesMap.TryGetValue(key, out eventType))
             {
@@ -306,7 +303,10 @@ namespace GenealogyTreeInGit.Gedcom
                 gedcomEvent = adoptionEvent;
             }
 
-            gedcomEvent.Date = date;
+            if (dateString != null)
+            {
+                gedcomEvent.Date = dateString;
+            }
             gedcomEvent.Place = chunk.Subchunks.TryGetFirstValue("PLAC", out GedcomChunk data) ? data.Data : null;
 
             if (chunk.Subchunks.TryGetFirstValue("MAP", out GedcomChunk map))

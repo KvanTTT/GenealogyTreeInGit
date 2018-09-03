@@ -4,7 +4,7 @@ namespace GenealogyTreeInGit.Gedcom
 {
     public class GedcomLine
     {
-        private static char[] separators = new char[] { ' ' };
+        private static char[] _separators = new char[] { ' ' };
 
         public static ILogger Logger { get; set; }
 
@@ -36,7 +36,7 @@ namespace GenealogyTreeInGit.Gedcom
                 return null;
             }
 
-            string[] sections = line.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+            string[] sections = line.Split(_separators, StringSplitOptions.RemoveEmptyEntries);
 
             if (sections.Length < 2)
             {
