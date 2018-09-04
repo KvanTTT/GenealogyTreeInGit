@@ -8,9 +8,9 @@ namespace GenealogyTreeInGit.Git
 
         public EventType Type { get; }
 
-        public DateTime Date { get; }
+        public DateTime Date { get; set; }
 
-        public GitDateType DateType { get; }
+        public GitDateType DateType { get; set; }
 
         public string Description { get; }
 

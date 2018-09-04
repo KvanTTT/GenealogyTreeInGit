@@ -39,7 +39,7 @@ namespace GenealogyTreeInGit
                     if (parseResult.Persons.TryGetValue(childRelation.ToId, out GedcomPerson parent) &&
                         parseResult.Persons.TryGetValue(childRelation.FromId, out GedcomPerson child))
                     {
-                        GedcomEvent gedcomEvent = parent.Events.FirstOrDefault(ev => ev.Type == EventType.Birth);
+                        GedcomEvent gedcomEvent = parent.Events.FirstOrDefault(ev => IsParentBeforeTheChildBirthEvent(ev.Type));
                         if (gedcomEvent?.Date != null &&
                             (minDates.TryGetValue(child.Id, out DateTime minDate) ? minDate > (DateTime)gedcomEvent.Date : true))
                         {
@@ -61,23 +61,44 @@ namespace GenealogyTreeInGit
                     if (persons.TryGetValue(childRelation.ToId, out GitPerson parent) &&
                         persons.TryGetValue(childRelation.FromId, out GitPerson child))
                     {
+                        bool birthEventExists = false;
+
                         for (int i = 0; i < child.Events.Count; i++)
                         {
                             if (child.Events[i].Type == EventType.Birth)
                             {
-                                var personEvent = child.Events[i] is GitExtendedPersonEvent gitExtendedPersonEvent
+                                birthEventExists = true;
+
+                                var childEvent = child.Events[i] is GitExtendedPersonEvent gitExtendedPersonEvent
                                     ? gitExtendedPersonEvent
                                     : new GitExtendedPersonEvent(child.Events[i]);
-                                personEvent.Parents.Add(parent);
-                                child.Events[i] = personEvent;
+
+                                DateTime parentBirthDate = parent.Events.FirstOrDefault(p => IsParentBeforeTheChildBirthEvent(p.Type))?.Date ?? default(DateTime);
+
+                                if (childEvent.Date < parentBirthDate)
+                                {
+                                    childEvent.Date = parentBirthDate;
+                                    childEvent.DateType = GitDateType.After;
+                                }
+
+                                childEvent.Parents.Add(parent);
+                                child.Events[i] = childEvent;
                             }
+                        }
+
+                        if (!birthEventExists)
+                        {
+                            DateTime parentBirthDate = parent.Events.FirstOrDefault(p => IsParentBeforeTheChildBirthEvent(p.Type))?.Date ?? default(DateTime);
+                            GitExtendedPersonEvent birthEvent = CreateBirthEvent(parseResult.Persons[child.Id], child, null, parentBirthDate, GitDateType.After);
+                            birthEvent.Parents.Add(parent);
+                            child.Events.Add(birthEvent);
                         }
                     }
                 }
             }
         }
 
-        private GitPerson Convert(GedcomPerson gedcomPerson, DateTime minDate)
+        private static GitPerson Convert(GedcomPerson gedcomPerson, DateTime minDate)
         {
             var result = new GitPerson(gedcomPerson.Id)
             {
@@ -104,21 +125,15 @@ namespace GenealogyTreeInGit
                     dateType = GitDateType.After;
                 }
 
-                string dateStr = dateType == GitDateType.Exact ? "at " + curDate.ToShortDateString() : "";
-                string description =
-                    Utils.JoinNotEmpty(result.FirstName, result.LastName, ":", ev.Type.ToString(), dateStr, ev.Place, ev.Latitude, ev.Longitude, ev.Note);
-
                 GitPersonEvent gitPersonEvent;
 
                 if (ev.Type == EventType.Birth)
                 {
-                    description += " " + Utils.JoinNotEmpty(gedcomPerson.Gender, gedcomPerson.Education,
-                        gedcomPerson.Religion, gedcomPerson.Note, gedcomPerson.Changed,
-                        gedcomPerson.Occupation, gedcomPerson.Health, gedcomPerson.Title);
-                    gitPersonEvent = new GitExtendedPersonEvent(result, ev.Type, curDate, description, dateType);
+                    gitPersonEvent = CreateBirthEvent(gedcomPerson, result, ev, curDate, dateType);
                 }
                 else
                 {
+                    string description = GenerateDescription(result, ev, curDate, dateType);
                     gitPersonEvent = new GitPersonEvent(result, ev.Type, curDate, description, dateType);
                 }
 
@@ -128,6 +143,28 @@ namespace GenealogyTreeInGit
             result.Events = events.OrderBy(ev => ev.Date).ToList();
 
             return result;
+        }
+
+        private static GitExtendedPersonEvent CreateBirthEvent(GedcomPerson gedcomPerson, GitPerson gitPerson, GedcomEvent ev, DateTime date, GitDateType dateType)
+        {
+            string description =
+                GenerateDescription(gitPerson, ev, date, dateType) +
+                " " + Utils.JoinNotEmpty(gedcomPerson.Gender, gedcomPerson.Education,
+                gedcomPerson.Religion, gedcomPerson.Note, gedcomPerson.Changed,
+                gedcomPerson.Occupation, gedcomPerson.Health, gedcomPerson.Title);
+
+            return new GitExtendedPersonEvent(gitPerson, EventType.Birth, date, description, dateType);
+        }
+
+        private static string GenerateDescription(GitPerson gitPerson, GedcomEvent ev, DateTime date, GitDateType dateType)
+        {
+            string dateStr = dateType == GitDateType.Exact ? "at " + date.ToShortDateString() : "";
+            return Utils.JoinNotEmpty(gitPerson.FirstName, gitPerson.LastName, ":", ev?.Type.ToString(), dateStr, ev?.Place, ev?.Latitude, ev?.Longitude, ev?.Note);
+        }
+
+        private static bool IsParentBeforeTheChildBirthEvent(EventType type)
+        {
+            return type == EventType.Birth || type == EventType.Baptized;
         }
     }
 }
