@@ -92,19 +92,37 @@ namespace GenealogyTreeInGit.Gedcom
             dateTime = default(DateTime);
 
             int day = 1, monthIndex = 0, year = 1;
-            string dayStr = null, monthStr = null, yearStr = null;
+            string dayStr = null, yearStr = null;
             int dataFragmentCount = strs.Length - startIndex;
 
             if (dataFragmentCount == 3)
             {
                 dayStr = strs[startIndex];
-                monthStr = strs[startIndex + 1];
+                monthIndex = Months.IndexOf(strs[startIndex + 1]);
+
+                if (monthIndex == -1)
+                    return false;
+
                 yearStr = strs[startIndex + 2];
             }
             else if (dataFragmentCount == 2)
             {
-                monthStr = strs[startIndex];
-                yearStr = strs[startIndex + 1];
+                string first = strs[startIndex];
+                string second = strs[startIndex + 1];
+
+                monthIndex = Months.IndexOf(first);
+                if (monthIndex != -1)
+                {
+                    yearStr = second;
+                }
+                else
+                {
+                    monthIndex = Months.IndexOf(second);
+                    if (monthIndex == -1)
+                        return false;
+
+                    dayStr = first;
+                }
             }
             else if (dataFragmentCount == 1)
             {
@@ -118,14 +136,6 @@ namespace GenealogyTreeInGit.Gedcom
             if (dayStr != null && !int.TryParse(dayStr, out day))
             {
                 return false;
-            }
-
-            if (monthStr != null)
-            {
-                monthIndex = Months.IndexOf(monthStr);
-
-                if (monthIndex == -1)
-                    return false;
             }
 
             if (yearStr != null)
