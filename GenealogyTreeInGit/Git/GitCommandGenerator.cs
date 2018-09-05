@@ -88,19 +88,16 @@ namespace GenealogyTreeInGit.Git
                     existedBranches.Add(currenBranchName);
                 }
 
-                if (ev is GitExtendedPersonEvent gitExtendedPersonEvent)
+                foreach (GitPerson parent in ev.Parents)
                 {
-                    foreach (GitPerson parent in gitExtendedPersonEvent.Parents)
-                    {
-                        builder.AppendLine($"git merge {parent.Id} --allow-unrelated-histories --no-commit");
-                    }
+                    builder.AppendLine($"git merge {parent.Id} --allow-unrelated-histories --no-commit");
                 }
 
                 DateTime dateTime = ev.Date > MinGitDateTime ? ev.Date : MinGitDateTime;
-                string fullName = Utils.JoinNotEmpty(ev.Person.FirstName, ev.Person.LastName);
+                string fullName = Utils.JoinNotEmpty(ev.FirstName ?? ev.Person.FirstName, ev.LastName ?? ev.Person.LastName);
                 string message = Escape(ev.Description);
                 string date = dateTime.ToString(CultureInfo.InvariantCulture);
-                string author = Escape(Utils.JoinNotEmpty(fullName, $"<{ev.Person.EMail}>"));
+                string author = Escape(Utils.JoinNotEmpty(fullName, $"<{ev.EMail ?? ev.Person.EMail}>"));
 
                 builder.AppendLine($@"git commit -m ""{message}"" --date ""{date}"" --author ""{author}"" --allow-empty");
             }
@@ -117,7 +114,18 @@ namespace GenealogyTreeInGit.Git
 
         private static string Escape(string str)
         {
-            return str.Replace("\\", "\\\\");
+            str = str.Replace("\\", "\\\\");
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // TODO: try to fix line breaks and double quotes removing (does not work on Windows)
+                str = str.Replace("\r\n", " ").Replace("\n", " ");
+                str = str.Replace('"', '\'');
+            }
+            else
+            {
+                str = str.Replace("\"", "\\\"");
+            }
+            return str;
         }
     }
 }

@@ -22,7 +22,7 @@ namespace GenealogyTreeInGit
                 arguments = '\"' + scriptFileName + '\"';
             }
 
-            var processor = new Processor(toolName, "/c " + scriptFileName)
+            var processor = new Processor(toolName, scriptFileName)
             {
                 WorkingDirectory = filePath
             };
