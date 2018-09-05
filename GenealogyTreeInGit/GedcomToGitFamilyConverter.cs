@@ -13,46 +13,20 @@ namespace GenealogyTreeInGit
         {
             var persons = new Dictionary<string, GitPerson>();
 
-            Dictionary<string, DateTime> minDates = GetMinDatesForPersons(parseResult);
-
             foreach (KeyValuePair<string, GedcomPerson> gedcomPerson in parseResult.Persons)
             {
-                GitPerson gitPerson = Convert(gedcomPerson.Value,
-                    minDates.TryGetValue(gedcomPerson.Key, out DateTime minDate) ? minDate : DateTime.MinValue);
+                GitPerson gitPerson = Convert(gedcomPerson.Value);
                 persons.Add(gitPerson.Id, gitPerson);
             }
 
-            FillParents(parseResult, persons);
+            FillParentsAndChildren(parseResult, persons);
 
+            // TODO: also fill not person events
             var family = new Family(parseResult.Title, persons, new List<GitPersonEvent>());
             return family;
         }
 
-        private static Dictionary<string, DateTime> GetMinDatesForPersons(GedcomParseResult parseResult)
-        {
-            Dictionary<string, DateTime> minDates = new Dictionary<string, DateTime>();
-
-            foreach (GedcomRelation relation in parseResult.Relations)
-            {
-                if (relation is ChildRelation childRelation)
-                {
-                    if (parseResult.Persons.TryGetValue(childRelation.ToId, out GedcomPerson parent) &&
-                        parseResult.Persons.TryGetValue(childRelation.FromId, out GedcomPerson child))
-                    {
-                        GedcomEvent gedcomEvent = parent.Events.FirstOrDefault(ev => IsParentBeforeTheChildBirthEvent(ev.Type));
-                        if (gedcomEvent?.Date != null &&
-                            (minDates.TryGetValue(child.Id, out DateTime minDate) ? minDate > (DateTime)gedcomEvent.Date : true))
-                        {
-                            minDates[child.Id] = gedcomEvent.Date.DefaultDate.AddTicks(1);
-                        }
-                    }
-                }
-            }
-
-            return minDates;
-        }
-
-        private static void FillParents(GedcomParseResult parseResult, Dictionary<string, GitPerson> persons)
+        private static void FillParentsAndChildren(GedcomParseResult parseResult, Dictionary<string, GitPerson> persons)
         {
             foreach (GedcomRelation relation in parseResult.Relations)
             {
@@ -61,44 +35,81 @@ namespace GenealogyTreeInGit
                     if (persons.TryGetValue(childRelation.ToId, out GitPerson parent) &&
                         persons.TryGetValue(childRelation.FromId, out GitPerson child))
                     {
-                        bool birthEventExists = false;
+                        DateTime prevDate = parent.Events.FirstOrDefault(p => IsParentBeforeTheChildBirthEvent(p.Type))?.Date ?? DateTime.MinValue;
 
                         for (int i = 0; i < child.Events.Count; i++)
                         {
-                            if (child.Events[i].Type == EventType.Birth)
+                            GitPersonEvent childEvent = child.Events[i];
+
+                            if (childEvent.Date <= prevDate && childEvent.DateType != GitDateType.Exact)
                             {
-                                birthEventExists = true;
+                                childEvent.Date = prevDate.AddTicks(1);
+                                childEvent.DateType = GitDateType.After;
+                                FixChildrenDates(childEvent);
+                            }
+                            prevDate = childEvent.Date;
 
-                                var childEvent = child.Events[i] is GitExtendedPersonEvent gitExtendedPersonEvent
-                                    ? gitExtendedPersonEvent
-                                    : new GitExtendedPersonEvent(child.Events[i]);
-
-                                DateTime parentBirthDate = parent.Events.FirstOrDefault(p => IsParentBeforeTheChildBirthEvent(p.Type))?.Date ?? default(DateTime);
-
-                                if (childEvent.Date < parentBirthDate)
-                                {
-                                    childEvent.Date = parentBirthDate;
-                                    childEvent.DateType = GitDateType.After;
-                                }
-
+                            if (childEvent.Type == EventType.Birth)
+                            {
                                 childEvent.Parents.Add(parent);
                                 child.Events[i] = childEvent;
+                                InsertChild(parseResult.Persons[parent.Id], parent, child, childEvent);
                             }
-                        }
-
-                        if (!birthEventExists)
-                        {
-                            DateTime parentBirthDate = parent.Events.FirstOrDefault(p => IsParentBeforeTheChildBirthEvent(p.Type))?.Date ?? default(DateTime);
-                            GitExtendedPersonEvent birthEvent = CreateBirthEvent(parseResult.Persons[child.Id], child, null, parentBirthDate, GitDateType.After);
-                            birthEvent.Parents.Add(parent);
-                            child.Events.Add(birthEvent);
                         }
                     }
                 }
             }
         }
 
-        private static GitPerson Convert(GedcomPerson gedcomPerson, DateTime minDate)
+        private static void InsertChild(GedcomPerson gedcomParent, GitPerson gitParent, GitPerson gitChild, GitPersonEvent gitChildBirthEvent)
+        {
+            if (gitParent.Events.Count == 0)
+            {
+                gitParent.Events.Add(CreateBirthEvent(gedcomParent, gitParent, null, DateTime.MinValue, GitDateType.After));
+            }
+
+            bool childAdded = false;
+
+            for (int i = gitParent.Events.Count - 1; i >= 0; i--)
+            {
+                if (gitParent.Events[i].Date < gitChildBirthEvent.Date)
+                {
+                    gitParent.Events[i].Children.Add(gitChild);
+                    childAdded = true;
+                    break;
+                }
+            }
+
+            if (!childAdded)
+            {
+                gitParent.Events[0].Parents.Add(gitChild);
+            }
+        }
+
+        private static void FixChildrenDates(GitPersonEvent ev)
+        {
+            foreach (GitPerson child in ev.Children)
+            {
+                DateTime curDate = ev.Date;
+
+                foreach (GitPersonEvent childEvent in child.Events)
+                {
+                    if (childEvent.DateType == GitDateType.Exact)
+                    {
+                        break;
+                    }
+                    else if (childEvent.Date <= curDate)
+                    {
+                        curDate = curDate.AddTicks(1);
+                        childEvent.Date = curDate;
+                        childEvent.DateType = GitDateType.After;
+                        FixChildrenDates(childEvent);
+                    }
+                }
+            }
+        }
+
+        private static GitPerson Convert(GedcomPerson gedcomPerson)
         {
             var result = new GitPerson(gedcomPerson.Id)
             {
@@ -106,7 +117,7 @@ namespace GenealogyTreeInGit
                 LastName = gedcomPerson.LastName,
             };
 
-            DateTime curDate = minDate;
+            DateTime curDate = DateTime.MinValue;
 
             var events = new List<GitPersonEvent>();
 
@@ -140,12 +151,18 @@ namespace GenealogyTreeInGit
                 events.Add(gitPersonEvent);
             }
 
+            if (!events.Exists(ev => ev.Type == EventType.Birth))
+            {
+                GitPersonEvent birthEvent = CreateBirthEvent(gedcomPerson, result, null, DateTime.MinValue, GitDateType.After);
+                events.Insert(0, birthEvent);
+            }
+
             result.Events = events.OrderBy(ev => ev.Date).ToList();
 
             return result;
         }
 
-        private static GitExtendedPersonEvent CreateBirthEvent(GedcomPerson gedcomPerson, GitPerson gitPerson, GedcomEvent ev, DateTime date, GitDateType dateType)
+        private static GitPersonEvent CreateBirthEvent(GedcomPerson gedcomPerson, GitPerson gitPerson, GedcomEvent ev, DateTime date, GitDateType dateType)
         {
             string description =
                 GenerateDescription(gitPerson, ev, date, dateType) +
@@ -153,7 +170,7 @@ namespace GenealogyTreeInGit
                 gedcomPerson.Religion, gedcomPerson.Note, gedcomPerson.Changed,
                 gedcomPerson.Occupation, gedcomPerson.Health, gedcomPerson.Title);
 
-            return new GitExtendedPersonEvent(gitPerson, EventType.Birth, date, description, dateType);
+            return new GitPersonEvent(gitPerson, EventType.Birth, date, description, dateType);
         }
 
         private static string GenerateDescription(GitPerson gitPerson, GedcomEvent ev, DateTime date, GitDateType dateType)
