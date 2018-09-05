@@ -56,6 +56,10 @@ namespace GenealogyTreeInGit
                 {
                     commandGenerator.IgnoreEventsWithoutDate = true;
                 }
+                else if (arg.StartsWith("http") || arg.StartsWith("git"))
+                {
+                    commandGenerator.Source = arg; 
+                }
             }
 
             string commands = commandGenerator.Generate();

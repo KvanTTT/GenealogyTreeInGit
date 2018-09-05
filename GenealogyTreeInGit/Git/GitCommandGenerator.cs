@@ -12,7 +12,7 @@ namespace GenealogyTreeInGit.Git
 
         public Family Family { get; }
 
-        public Uri Source { get; set; }
+        public string Source { get; set; }
 
         public bool OnlyBirthEvents { get; set; }
 
@@ -31,7 +31,6 @@ namespace GenealogyTreeInGit.Git
 
             AppendInitialization(result);
             AppendPersons(result);
-            AppendFinalization(result);
 
             return result.ToString();
         }
@@ -45,6 +44,7 @@ namespace GenealogyTreeInGit.Git
             builder.AppendLine($"mkdir {Family.Title}");
             builder.AppendLine($"cd {Family.Title}");
             builder.AppendLine("git init");
+            builder.AppendLine();
         }
 
         private void AppendPersons(StringBuilder builder)
@@ -101,14 +101,13 @@ namespace GenealogyTreeInGit.Git
 
                 builder.AppendLine($@"git commit -m ""{message}"" --date ""{date}"" --author ""{author}"" --allow-empty");
             }
-        }
 
-        private void AppendFinalization(StringBuilder builder)
-        {
-            builder.AppendLine($"cd ..");
+            builder.AppendLine();
+
             if (Source != null)
             {
-                builder.AppendLine();
+                builder.AppendLine($"git remote add origin {Source}");
+                builder.AppendLine("git push --all -u --force");
             }
         }
 
