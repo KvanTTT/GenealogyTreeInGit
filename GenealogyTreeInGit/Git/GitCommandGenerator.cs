@@ -80,9 +80,9 @@ namespace GenealogyTreeInGit.Git
 
             foreach (GitPersonEvent ev in events)
             {
-                if (currenBranchName != ev.Person.Id)
+                if (currenBranchName != ev.BranchName)
                 {
-                    currenBranchName = ev.Person.Id;
+                    currenBranchName = ev.BranchName;
                     string orphan = existedBranches.Contains(currenBranchName) ? "" : "--orphan";
                     builder.AppendLine(Utils.JoinNotEmpty("git checkout", orphan, currenBranchName));
                     existedBranches.Add(currenBranchName);
@@ -94,10 +94,10 @@ namespace GenealogyTreeInGit.Git
                 }
 
                 DateTime dateTime = ev.Date > MinGitDateTime ? ev.Date : MinGitDateTime;
-                string fullName = Utils.JoinNotEmpty(ev.FirstName ?? ev.Person.FirstName, ev.LastName ?? ev.Person.LastName);
+                string fullName = Utils.JoinNotEmpty(ev.FirstName ?? ev.Person?.FirstName, ev.LastName ?? ev.Person?.LastName);
                 string message = Escape(ev.Description);
                 string date = dateTime.ToString(CultureInfo.InvariantCulture);
-                string author = Escape(Utils.JoinNotEmpty(fullName, $"<{ev.EMail ?? ev.Person.EMail}>"));
+                string author = Escape(Utils.JoinNotEmpty(fullName, $"<{ev.EMail ?? ev.Person?.EMail}>"));
 
                 builder.AppendLine($@"git commit -m ""{message}"" --date ""{date}"" --author ""{author}"" --allow-empty");
             }

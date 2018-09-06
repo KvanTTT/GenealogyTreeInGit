@@ -14,6 +14,7 @@
         Other,
         Divorce,
         Marriage,
-        Adoption
+        Adoption,
+        Sibling
     }
 }

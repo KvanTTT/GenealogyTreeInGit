@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace GenealogyTreeInGit.Git
 {
@@ -24,6 +25,8 @@ namespace GenealogyTreeInGit.Git
         public List<GitPerson> Parents { get; set; } = new List<GitPerson>();
 
         public List<GitPerson> Children { get; set; } = new List<GitPerson>();
+
+        public string BranchName => Person?.Id ?? string.Join("-", Parents.Select(parent => parent.Id));
 
         public GitPersonEvent(GitPerson gitPerson, EventType type, DateTime date, string description, GitDateType dateType = GitDateType.Exact)
         {

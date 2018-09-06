@@ -4,6 +4,7 @@ using GenealogyTreeInGit.Git;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace GenealogyTreeInGit
 {
@@ -19,22 +20,27 @@ namespace GenealogyTreeInGit
                 persons.Add(gitPerson.Id, gitPerson);
             }
 
-            FillParentsAndChildren(parseResult, persons);
+            FillRelations(parseResult, persons, out List<GitPersonEvent> notPersonEvents);
 
-            // TODO: also fill not person events
-            var family = new Family(parseResult.Title, persons, new List<GitPersonEvent>());
+            var family = new Family(parseResult.Title, persons, notPersonEvents);
             return family;
         }
 
-        private static void FillParentsAndChildren(GedcomParseResult parseResult, Dictionary<string, GitPerson> persons)
+        private static void FillRelations(GedcomParseResult parseResult, Dictionary<string, GitPerson> persons,
+            out List<GitPersonEvent> notPersonEvents)
         {
+            notPersonEvents = new List<GitPersonEvent>();
+
             foreach (GedcomRelation relation in parseResult.Relations)
             {
-                if (relation is ChildRelation childRelation)
+                if (persons.TryGetValue(relation.ToId, out GitPerson toPerson) &&
+                    persons.TryGetValue(relation.FromId, out GitPerson fromPerson))
                 {
-                    if (persons.TryGetValue(childRelation.ToId, out GitPerson parent) &&
-                        persons.TryGetValue(childRelation.FromId, out GitPerson child))
+                    if (relation is ChildRelation childRelation)
                     {
+                        GitPerson parent = toPerson;
+                        GitPerson child = fromPerson;
+
                         DateTime prevDate = parent.Events.FirstOrDefault(p => IsParentBeforeTheChildBirthEvent(p.Type))?.Date ?? DateTime.MinValue;
 
                         for (int i = 0; i < child.Events.Count; i++)
@@ -56,6 +62,28 @@ namespace GenealogyTreeInGit
                                 InsertChild(parseResult.Persons[parent.Id], parent, child, childEvent);
                             }
                         }
+                    }
+                    else if (relation is SpouseRelation spouseRelation)
+                    {
+                    }
+                    else if (relation is SiblingRelation siblingRelation)
+                    {
+                        DateTime date1 = fromPerson.Events.FirstOrDefault()?.Date ?? DateTime.MinValue;
+                        DateTime date2 = toPerson.Events.FirstOrDefault()?.Date ?? DateTime.MinValue;
+                        DateTime minDate = date1 > date2 ? date1 : date2;
+                        minDate = minDate.AddTicks(1);
+
+                        string description = GenerateDescription(null, EventType.Sibling, minDate, GitDateType.After, fromPerson, toPerson);
+                        var ev = new GitPersonEvent(null, EventType.Sibling, minDate, description, GitDateType.After)
+                        {
+                            FirstName = GenerateName(fromPerson, toPerson),
+                            Parents = new List<GitPerson>()
+                            {
+                                toPerson,
+                                fromPerson
+                            }
+                        };
+                        notPersonEvents.Add(ev);
                     }
                 }
             }
@@ -144,7 +172,7 @@ namespace GenealogyTreeInGit
                 }
                 else
                 {
-                    string description = GenerateDescription(result, ev, curDate, dateType);
+                    string description = GenerateDescription(ev, ev.Type, curDate, dateType, result);
                     gitPersonEvent = new GitPersonEvent(result, ev.Type, curDate, description, dateType);
                 }
 
@@ -165,7 +193,7 @@ namespace GenealogyTreeInGit
         private static GitPersonEvent CreateBirthEvent(GedcomPerson gedcomPerson, GitPerson gitPerson, GedcomEvent ev, DateTime date, GitDateType dateType)
         {
             string description =
-                GenerateDescription(gitPerson, ev, date, dateType) +
+                GenerateDescription(ev, EventType.Birth, date, dateType, gitPerson) +
                 " " + Utils.JoinNotEmpty(gedcomPerson.Gender, gedcomPerson.Education,
                 gedcomPerson.Religion, gedcomPerson.Note, gedcomPerson.Changed,
                 gedcomPerson.Occupation, gedcomPerson.Health, gedcomPerson.Title);
@@ -173,10 +201,27 @@ namespace GenealogyTreeInGit
             return new GitPersonEvent(gitPerson, EventType.Birth, date, description, dateType);
         }
 
-        private static string GenerateDescription(GitPerson gitPerson, GedcomEvent ev, DateTime date, GitDateType dateType)
+        private static string GenerateDescription(GedcomEvent ev, EventType eventType, DateTime date, GitDateType dateType, params GitPerson[] gitPersons)
         {
             string dateStr = dateType == GitDateType.Exact ? "at " + date.ToShortDateString() : "";
-            return Utils.JoinNotEmpty(gitPerson.FirstName, gitPerson.LastName, ":", ev?.Type.ToString(), dateStr, ev?.Place, ev?.Latitude, ev?.Longitude, ev?.Note);
+            string personsString = GenerateName(gitPersons);
+            return Utils.JoinNotEmpty(personsString, ":", ev?.Type.ToString() ?? eventType.ToString(), dateStr, ev?.Place, ev?.Latitude, ev?.Longitude, ev?.Note);
+        }
+
+        private static string GenerateName(params GitPerson[] gitPersons)
+        {
+            var personsString = new StringBuilder();
+
+            foreach (GitPerson gitPerson in gitPersons)
+            {
+                personsString.Append(Utils.JoinNotEmpty(gitPerson.FirstName, gitPerson.LastName, "& "));
+            }
+            if (gitPersons.Length > 0)
+            {
+                personsString.Remove(personsString.Length - 2, 2);
+            }
+
+            return personsString.ToString().Trim();
         }
 
         private static bool IsParentBeforeTheChildBirthEvent(EventType type)
