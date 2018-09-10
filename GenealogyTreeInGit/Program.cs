@@ -60,6 +60,10 @@ namespace GenealogyTreeInGit
                 {
                     commandGenerator.Source = arg; 
                 }
+                else
+                {
+                    logger.LogError($"Unknown parameter {arg}");
+                }
             }
 
             string commands = commandGenerator.Generate();
