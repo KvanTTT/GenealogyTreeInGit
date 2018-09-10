@@ -66,25 +66,6 @@ namespace GenealogyTreeInGit
                     else if (relation is SpouseRelation spouseRelation)
                     {
                     }
-                    else if (relation is SiblingRelation siblingRelation)
-                    {
-                        DateTime date1 = fromPerson.Events.FirstOrDefault()?.Date ?? DateTime.MinValue;
-                        DateTime date2 = toPerson.Events.FirstOrDefault()?.Date ?? DateTime.MinValue;
-                        DateTime minDate = date1 > date2 ? date1 : date2;
-                        minDate = minDate.AddTicks(1);
-
-                        string description = GenerateDescription(null, EventType.Sibling, minDate, GitDateType.After, fromPerson, toPerson);
-                        var ev = new GitPersonEvent(null, EventType.Sibling, minDate, description, GitDateType.After)
-                        {
-                            FirstName = GenerateName(fromPerson, toPerson),
-                            Parents = new List<GitPerson>()
-                            {
-                                toPerson,
-                                fromPerson
-                            }
-                        };
-                        notPersonEvents.Add(ev);
-                    }
                 }
             }
         }

@@ -156,15 +156,6 @@ namespace GenealogyTreeInGit.Gedcom
                     _parseResult.Relations.Add(childRelation);
                 }
             }
-
-            // Siblings
-            foreach (string child1 in childrenIds)
-            {
-                foreach (string child2 in childrenIds.Where(c => c != child1))
-                {
-                    _parseResult.Relations.Add(new SiblingRelation(famChunk.Id, child1, child2));
-                }
-            }
         }
 
         private GedcomPerson ParseIndividual(GedcomChunk indiChunk)
